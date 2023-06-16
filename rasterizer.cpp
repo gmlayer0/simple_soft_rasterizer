@@ -159,30 +159,35 @@ void half_space_rasterizer(const Vertex input[3], unsigned int width, unsigned i
     F01_0 = (((x[0] * y[1])) - ((x[1] * y[0]))) & 0xffffff;
     F12_0 = (((x[1] * y[2])) - ((x[2] * y[1]))) & 0xffffff;
     F20_0 = (((x[2] * y[0])) - ((x[0] * y[2]))) & 0xffffff;
-    int delta = F01_0 + F12_0 + F20_0;
+    int delta = (2 * (F01_0 + F12_0 + F20_0)) & 0xffffff;
     if (delta & 0x800000) return;
-    int F01_y, F12_y, F20_y;
+    int F01_y, F12_y, F20_y, Z_y;
     F01_y = (F01_0 + ((DF01DX * min_x)) + ((DF01DY * min_y))) & 0xffffff;
     F12_y = (F12_0 + ((DF12DX * min_x)) + ((DF12DY * min_y))) & 0xffffff;
     F20_y = (F20_0 + ((DF20DX * min_x)) + ((DF20DY * min_y))) & 0xffffff;
-    // todo insert uv.
-    float invert_delta = 1.0f / (float) delta;
+
+    int DZDX = (DF12DX * d[0] + DF20DX * d[1] + DF01DX * d[2]) / delta;
+    int DZDY = (DF12DY * d[0] + DF20DY * d[1] + DF01DY * d[2]) / delta;
+    Z_y = d[0] + DZDX * (min_x - x[0]) + DZDY * (min_y - y[0]);
     for (signed short iy = min_y; iy < max_y; iy += (1)) {
         int F01_x = F01_y;
         int F12_x = F12_y;
         int F20_x = F20_y;
+        int Z_x = Z_y;
         for (signed short ix = min_x; ix < max_x; ix += (1)) {
             if (((F01_x | F12_x | F20_x) & 0x800000) == 0) {
                 fb[(iy) * width + (ix)] = 0xffffffff;
             } else {
-                fb[(iy) * width + (ix)] = 0xff66ccff;
+                fb[(iy) * width + (ix)] = 0xff000000 | ((Z_x >> 4) & 0xff);
             }
             F01_x = (F01_x + DF01DX) & 0xffffff;
             F12_x = (F12_x + DF12DX) & 0xffffff;
             F20_x = (F20_x + DF20DX) & 0xffffff;
+            Z_x = (Z_x + DZDX) & 0xffffff;
         }
         F01_y = (F01_y + DF01DY) & 0xffffff;
         F12_y = (F12_y + DF12DY) & 0xffffff;
         F20_y = (F20_y + DF20DY) & 0xffffff;
+        Z_y = (Z_y + DZDY) & 0xffffff;
     }
 }
