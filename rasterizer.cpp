@@ -123,6 +123,10 @@ void screen_transform(const Vertex &input, Vertex &out, float width, float heigh
     // output here should be in screen space
 }
 
+short ext12b(short in) {
+    return in | ((in & 0x800) ? 0xf000 : 0x0000);
+}
+
 void half_space_rasterizer(const Vertex input[3], unsigned int width, unsigned int height, const char *tex,
                            unsigned short *db, unsigned int *fb) {
     // predeclear : input here should be in screen space
@@ -150,42 +154,47 @@ void half_space_rasterizer(const Vertex input[3], unsigned int width, unsigned i
     short DF01DX, DF12DX, DF20DX, DF01DY, DF12DY, DF20DY;
     // signed 24.0
     int F01_0, F12_0, F20_0;
-    DF01DX = (short) (y[0] - y[1]);
-    DF12DX = (short) (y[1] - y[2]);
-    DF20DX = (short) (y[2] - y[0]);
-    DF01DY = (short) (x[1] - x[0]);
-    DF12DY = (short) (x[2] - x[1]);
-    DF20DY = (short) (x[0] - x[2]);
+    DF01DX = (short) ((y[0] - y[1]) & 0xfff);
+    DF12DX = (short) ((y[1] - y[2]) & 0xfff);
+    DF20DX = (short) ((y[2] - y[0]) & 0xfff);
+    DF01DY = (short) ((x[1] - x[0]) & 0xfff);
+    DF12DY = (short) ((x[2] - x[1]) & 0xfff);
+    DF20DY = (short) ((x[0] - x[2]) & 0xfff);
     F01_0 = (((x[0] * y[1])) - ((x[1] * y[0]))) & 0xffffff;
     F12_0 = (((x[1] * y[2])) - ((x[2] * y[1]))) & 0xffffff;
     F20_0 = (((x[2] * y[0])) - ((x[0] * y[2]))) & 0xffffff;
     int delta = (F01_0 + F12_0 + F20_0) & 0xffffff;
     if (delta & 0x800000) return;
-    int F01_y, F12_y, F20_y, Z_y, U_y, V_y;
-    F01_y = (F01_0 + ((DF01DX * min_x)) + ((DF01DY * min_y))) & 0xffffff;
-    F12_y = (F12_0 + ((DF12DX * min_x)) + ((DF12DY * min_y))) & 0xffffff;
-    F20_y = (F20_0 + ((DF20DX * min_x)) + ((DF20DY * min_y))) & 0xffffff;
+    int F01_y, F12_y, F20_y;
+    short Z_y, U_y, V_y;
+    short DZDX, DZDY, DUDX, DUDY, DVDX, DVDY;
 
-    int DZDX = (DF20DX * (d[1] - d[0]) + DF01DX * (d[2] - d[0])) / delta;
-    int DZDY = (DF20DY * (d[1] - d[0]) + DF01DY * (d[2] - d[0])) / delta;
-    int DUDX = (DF20DX * (u[1] - u[0]) + DF01DX * (u[2] - u[0])) / delta;
-    int DUDY = (DF20DY * (u[1] - u[0]) + DF01DY * (u[2] - u[0])) / delta;
-    int DVDX = (DF20DX * (v[1] - v[0]) + DF01DX * (v[2] - v[0])) / delta;
-    int DVDY = (DF20DY * (v[1] - v[0]) + DF01DY * (v[2] - v[0])) / delta;
-    Z_y = (d[0] + DZDX * (min_x - x[0]) + DZDY * (min_y - y[0])) & 0xfff;
-    U_y = (u[0] + DUDX * (min_x - x[0]) + DUDY * (min_y - y[0])) & 0xfff;
-    V_y = (v[0] + DVDX * (min_x - x[0]) + DVDY * (min_y - y[0])) & 0xfff;
+    // 24b begin 24b * 3 = 72b
+    F01_y = (F01_0 + ((ext12b(DF01DX) * min_x)) + ((ext12b(DF01DY) * min_y))) & 0xffffff;
+    F12_y = (F12_0 + ((ext12b(DF12DX) * min_x)) + ((ext12b(DF12DY) * min_y))) & 0xffffff;
+    F20_y = (F20_0 + ((ext12b(DF20DX) * min_x)) + ((ext12b(DF20DY) * min_y))) & 0xffffff;
+
+    // 12b begin 12b * 6 = 72b
+    DZDX = (short) (((ext12b(DF20DX) * (d[1] - d[0]) + ext12b(DF01DX) * (d[2] - d[0])) / delta) & 0xfff);
+    DZDY = (short) (((ext12b(DF20DY) * (d[1] - d[0]) + ext12b(DF01DY) * (d[2] - d[0])) / delta) & 0xfff);
+    DUDX = (short) (((ext12b(DF20DX) * (u[1] - u[0]) + ext12b(DF01DX) * (u[2] - u[0])) / delta) & 0xfff);
+    DUDY = (short) (((ext12b(DF20DY) * (u[1] - u[0]) + ext12b(DF01DY) * (u[2] - u[0])) / delta) & 0xfff);
+    DVDX = (short) (((ext12b(DF20DX) * (v[1] - v[0]) + ext12b(DF01DX) * (v[2] - v[0])) / delta) & 0xfff);
+    DVDY = (short) (((ext12b(DF20DY) * (v[1] - v[0]) + ext12b(DF01DY) * (v[2] - v[0])) / delta) & 0xfff);
+    Z_y = (short) ((d[0] + ext12b(DZDX) * (min_x - x[0]) + ext12b(DZDY) * (min_y - y[0])) & 0xfff);
+    U_y = (short) ((u[0] + ext12b(DUDX) * (min_x - x[0]) + ext12b(DUDY) * (min_y - y[0])) & 0xfff);
+    V_y = (short) ((v[0] + ext12b(DVDX) * (min_x - x[0]) + ext12b(DVDY) * (min_y - y[0])) & 0xfff);
     for (signed short iy = min_y; iy < max_y; iy += (1)) {
         int F01_x = F01_y;
         int F12_x = F12_y;
         int F20_x = F20_y;
-        unsigned int Z_x = Z_y;
-        unsigned int U_x = U_y;
-        unsigned int V_x = V_y;
+        short Z_x = Z_y;
+        short U_x = U_y;
+        short V_x = V_y;
         for (signed short ix = min_x; ix < max_x; ix += (1)) {
             unsigned int addr = (iy) * width + (ix);
             if (((F01_x | F12_x | F20_x) & 0x800000) == 0) {
-                if (Z_x >= ((int) db[addr])) {
+                if (Z_x >= db[addr]) {
                     db[addr] = Z_x & 0xfff;
                     fb[addr] = 0xff000000 | (((U_x >> 4) & 0xff) << 8) | (((V_x >> 4) & 0xff) << 0);
                 }
@@ -193,18 +202,18 @@ void half_space_rasterizer(const Vertex input[3], unsigned int width, unsigned i
 //            else {
 //                fb[(iy) * width + (ix)] = 0xffffffff;
 //            }
-            F01_x = (F01_x + DF01DX) & 0xffffff;
-            F12_x = (F12_x + DF12DX) & 0xffffff;
-            F20_x = (F20_x + DF20DX) & 0xffffff;
-            Z_x = (Z_x + DZDX) & 0xfff;
-            U_x = (U_x + DUDX) & 0xfff;
-            V_x = (V_x + DVDX) & 0xfff;
+            F01_x = (F01_x + ext12b(DF01DX)) & 0xffffff;
+            F12_x = (F12_x + ext12b(DF12DX)) & 0xffffff;
+            F20_x = (F20_x + ext12b(DF20DX)) & 0xffffff;
+            Z_x = (short) ((Z_x + ext12b(DZDX)) & 0xfff);
+            U_x = (short) ((U_x + ext12b(DUDX)) & 0xfff);
+            V_x = (short) ((V_x + ext12b(DVDX)) & 0xfff);
         }
-        F01_y = (F01_y + DF01DY) & 0xffffff;
-        F12_y = (F12_y + DF12DY) & 0xffffff;
-        F20_y = (F20_y + DF20DY) & 0xffffff;
-        Z_y = (Z_y + DZDY) & 0xfff;
-        U_y = (U_y + DUDY) & 0xfff;
-        V_y = (V_y + DVDY) & 0xfff;
+        F01_y = (F01_y + ext12b(DF01DY)) & 0xffffff;
+        F12_y = (F12_y + ext12b(DF12DY)) & 0xffffff;
+        F20_y = (F20_y + ext12b(DF20DY)) & 0xffffff;
+        Z_y = (short) ((Z_y + ext12b(DZDY)) & 0xfff);
+        U_y = (short) ((U_y + ext12b(DUDY)) & 0xfff);
+        V_y = (short) ((V_y + ext12b(DVDY)) & 0xfff);
     }
 }
