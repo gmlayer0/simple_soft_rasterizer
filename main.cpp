@@ -42,9 +42,9 @@ int main() {
                 break;
             }
         }
-        Vertex in[3] = {{{103.9f, 390.5f,  0.f, 1.f}, {0.f, 0.f}},
-                        {{501.f,  280.91f,   0.f, 1.f}, {0.f, 0.f}},
-                        {{391.f,  520.81f, 0.f, 1.f}, {0.f, 0.f}}};
+        Vertex in[3] = {{{0.1f, 390.5f,  0.f, 1.f}, {0.f, 0.f}},
+                        {{0.f,  0.21f,   0.f, 1.f}, {0.f, 0.f}},
+                        {{799.5f,  599.81f, 0.f, 1.f}, {0.f, 0.f}}};
         half_space_rasterizer(in, WIDTH, HEIGHT, nullptr, reinterpret_cast<unsigned int *>(fb));
         SDL_UpdateTexture(tex, nullptr, fb, WIDTH * 4);
         SDL_RenderCopy(render, tex, nullptr, nullptr);

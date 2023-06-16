@@ -129,24 +129,26 @@ void half_space_rasterizer(const Vertex input[3], unsigned int width, unsigned i
     // 0 - 1023.0f
 
     // convert parameters into fixed-points.
-    // signed 11.5 -1024 - 1023.
+    // signed 12.0 -1024 - 1023.
     short max_x, max_y, min_x, min_y;
     short x[3], y[3], d[3];
+    // signed 12.0
     unsigned short u[3], v[3];
     for (int i = 0; i < 3; i++) {
-        x[i] = (short) lroundf(32.0f * input[i].position[0]);
-        y[i] = (short) lroundf(32.0f * input[i].position[1]);
-        d[i] = (short) lroundf(32.0f * input[i].position[2]);
-        u[i] = (unsigned short) (input[i].texcoord[0] * 65535.f);
-        v[i] = (unsigned short) (input[i].texcoord[1] * 65535.f);
+        x[i] = (short) (lroundf(input[i].position[0]) & 0xfff);
+        y[i] = (short) (lroundf(input[i].position[1]) & 0xfff);
+        d[i] = (short) (lroundf(input[i].position[2] * 4095.f) & 0xfff);
+
+        u[i] = (unsigned short) (input[i].texcoord[0] * 4095.f);
+        v[i] = (unsigned short) (input[i].texcoord[1] * 4095.f);
     }
     max_x = max(x[0], max(x[1], x[2]));
     min_x = min(x[0], min(x[1], x[2]));
     max_y = max(y[0], max(y[1], y[2]));
     min_y = min(y[0], min(y[1], y[2]));
-    // signed 11.5 -1024 - 1023.
+    // signed 12.0 -2048 - 2047.
     short DF01DX, DF12DX, DF20DX, DF01DY, DF12DY, DF20DY;
-    // signed 27.5
+    // signed 24.0
     int F01_0, F12_0, F20_0;
     DF01DX = (short) (y[0] - y[1]);
     DF12DX = (short) (y[1] - y[2]);
@@ -154,33 +156,33 @@ void half_space_rasterizer(const Vertex input[3], unsigned int width, unsigned i
     DF01DY = (short) (x[1] - x[0]);
     DF12DY = (short) (x[2] - x[1]);
     DF20DY = (short) (x[0] - x[2]);
-    F01_0 = ((x[0] * y[1]) >> 5) - ((x[1] * y[0]) >> 5);
-    F12_0 = ((x[1] * y[2]) >> 5) - ((x[2] * y[1]) >> 5);
-    F20_0 = ((x[2] * y[0]) >> 5) - ((x[0] * y[2]) >> 5);
+    F01_0 = (((x[0] * y[1])) - ((x[1] * y[0]))) & 0xffffff;
+    F12_0 = (((x[1] * y[2])) - ((x[2] * y[1]))) & 0xffffff;
+    F20_0 = (((x[2] * y[0])) - ((x[0] * y[2]))) & 0xffffff;
     int delta = F01_0 + F12_0 + F20_0;
-    if (delta <= 0) return;
+    if (delta & 0x800000) return;
     int F01_y, F12_y, F20_y;
-    F01_y = F01_0 + ((DF01DX * min_x) >> 5) + ((DF01DY * min_y) >> 5);
-    F12_y = F12_0 + ((DF12DX * min_x) >> 5) + ((DF12DY * min_y) >> 5);
-    F20_y = F20_0 + ((DF20DX * min_x) >> 5) + ((DF20DY * min_y) >> 5);
+    F01_y = (F01_0 + ((DF01DX * min_x)) + ((DF01DY * min_y))) & 0xffffff;
+    F12_y = (F12_0 + ((DF12DX * min_x)) + ((DF12DY * min_y))) & 0xffffff;
+    F20_y = (F20_0 + ((DF20DX * min_x)) + ((DF20DY * min_y))) & 0xffffff;
     // todo insert uv.
     float invert_delta = 1.0f / (float) delta;
-    for (signed short iy = min_y; iy < max_y; iy += (1 << 5)) {
+    for (signed short iy = min_y; iy < max_y; iy += (1)) {
         int F01_x = F01_y;
         int F12_x = F12_y;
         int F20_x = F20_y;
-        for (signed short ix = min_x; ix < max_x; ix += (1 << 5)) {
-            if (((F01_x | F12_x | F20_x) & 0x80000000) == 0) {
-                fb[(iy >> 5) * width + (ix >> 5)] = 0xffffffff;
+        for (signed short ix = min_x; ix < max_x; ix += (1)) {
+            if (((F01_x | F12_x | F20_x) & 0x800000) == 0) {
+                fb[(iy) * width + (ix)] = 0xffffffff;
             } else {
-                fb[(iy >> 5) * width + (ix >> 5)] = 0xff000000;
+                fb[(iy) * width + (ix)] = 0xff66ccff;
             }
-            F01_x = (F01_x + DF01DX);
-            F12_x = (F12_x + DF12DX);
-            F20_x = (F20_x + DF20DX);
+            F01_x = (F01_x + DF01DX) & 0xffffff;
+            F12_x = (F12_x + DF12DX) & 0xffffff;
+            F20_x = (F20_x + DF20DX) & 0xffffff;
         }
-        F01_y = (F01_y + DF01DY);
-        F12_y = (F12_y + DF12DY);
-        F20_y = (F20_y + DF20DY);
+        F01_y = (F01_y + DF01DY) & 0xffffff;
+        F12_y = (F12_y + DF12DY) & 0xffffff;
+        F20_y = (F20_y + DF20DY) & 0xffffff;
     }
 }
