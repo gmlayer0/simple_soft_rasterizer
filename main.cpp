@@ -1,77 +1,58 @@
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-
 #include <iostream>
 
-void framebuffer_size_callback(GLFWwindow *window, int width, int height);
+#define SDL_MAIN_HANDLED
 
-void processInput(GLFWwindow *window);
+#include <SDL.h>
+#include "vertex.h"
 
-// settings
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
+void half_space_rasterizer(const Vertex input[3], unsigned int width, unsigned int height, const char *tex,
+                           unsigned int *fb);
+
+const int WIDTH = 800, HEIGHT = 600; // SDL窗口的宽和高
 
 int main() {
-    // glfw: initialize and configure
-    // ------------------------------
-    glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-    // glfw window creation
-    // --------------------
-    GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Simple Soft Raster Renderer", NULL, NULL);
-    if (window == NULL) {
-        std::cout << "Failed to create GLFW window" << std::endl;
-        glfwTerminate();
-        return -1;
-    }
-    glfwMakeContextCurrent(window);
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-
-    // glad: load all OpenGL function pointers
-    // ---------------------------------------
-    if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
-        std::cout << "Failed to initialize GLAD" << std::endl;
+    if (SDL_Init(SDL_INIT_EVERYTHING) < 0) { // 初始化SDL
+        std::cout << "SDL could not initialized with error: " << SDL_GetError() << std::endl;
         return -1;
     }
 
-    // render loop
-    // -----------
-    while (!glfwWindowShouldClose(window)) {
-        // input
-        // -----
-        processInput(window);
+    SDL_Window *window = SDL_CreateWindow(
+            "DL SoftRender", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+            WIDTH, HEIGHT, SDL_WINDOW_ALLOW_HIGHDPI
+    ); // 创建SDL窗口
 
-        // render
-        // ------
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
-        // -------------------------------------------------------------------------------
-        glfwSwapBuffers(window);
-        glfwPollEvents();
+    if (window == nullptr) {
+        std::cout << "SDL could not create window with error: " << SDL_GetError() << std::endl;
+        return -1;
     }
 
-    // glfw: terminate, clearing all previously allocated GLFW resources.
-    // ------------------------------------------------------------------
-    glfwTerminate();
+    SDL_Renderer *render = SDL_CreateRenderer(window, -1, 0);
+    SDL_SetRenderDrawColor(render, 0x50, 0x50, 0x50, 255);
+    SDL_RenderClear(render);
+    SDL_RenderPresent(render);
+    SDL_Texture *tex = SDL_CreateTexture(render, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, WIDTH, HEIGHT);
+    SDL_Event windowEvent; // SDL窗口事件
+
+    char *fb = static_cast<char *>(malloc(WIDTH * HEIGHT * 4));
+
+    while (true) {
+        if (SDL_PollEvent(&windowEvent)) { // 对当前待处理事件进行轮询
+            if (SDL_QUIT == windowEvent.type) { // 如果事件为推出SDL，结束循环
+                std::cout << "SDL quit!!" << std::endl;
+                break;
+            }
+        }
+        Vertex in[3] = {{{103.9f, 390.5f,  0.f, 1.f}, {0.f, 0.f}},
+                        {{501.f,  280.91f,   0.f, 1.f}, {0.f, 0.f}},
+                        {{391.f,  520.81f, 0.f, 1.f}, {0.f, 0.f}}};
+        half_space_rasterizer(in, WIDTH, HEIGHT, nullptr, reinterpret_cast<unsigned int *>(fb));
+        SDL_UpdateTexture(tex, nullptr, fb, WIDTH * 4);
+        SDL_RenderCopy(render, tex, nullptr, nullptr);
+        SDL_RenderPresent(render);
+    }
+
+    free(fb);
+    SDL_DestroyWindow(window); // 销毁SDL窗体
+    SDL_Quit(); // SDL退出
     return 0;
-}
-
-// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
-// ---------------------------------------------------------------------------------------------------------
-void processInput(GLFWwindow *window) {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
-}
-
-// glfw: whenever the window size changed (by OS or user resize) this callback function executes
-// ---------------------------------------------------------------------------------------------
-void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
-    // make sure the viewport matches the new window dimensions; note that width and
-    // height will be significantly larger than specified on retina displays.
-    glViewport(0, 0, width, height);
 }
