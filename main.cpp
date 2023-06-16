@@ -44,9 +44,9 @@ int main() {
                 break;
             }
         }
-        Vertex in[3] = {{{149.f + i,     549.f - i / 4, 1.0f, 1.f}, {0.f, 0.f}},
-                        {{149.f + i / 2, 0.0f + i,      0.2f, 1.f}, {0.f, 0.f}},
-                        {{549.f - i,     549.f - i,     0.0f, 1.f}, {0.f, 0.f}}};
+        Vertex in[3] = {{{149.f + i,     549.f - i / 4, 1.0f, 1.f}, {0.45f, 0.45f}},
+                        {{149.f + i / 2, 0.0f + i,      0.2f, 1.f}, {1.f,   0.f}},
+                        {{549.f - i,     549.f - i,     0.0f, 1.f}, {0.f,   1.f}}};
         memset(fb, 0x55, WIDTH * HEIGHT * 4);
         half_space_rasterizer(in, WIDTH, HEIGHT, nullptr, reinterpret_cast<unsigned int *>(fb));
         SDL_UpdateTexture(tex, nullptr, fb, WIDTH * 4);
