@@ -6,7 +6,7 @@
 #include "vertex.h"
 
 void half_space_rasterizer(const Vertex input[3], unsigned int width, unsigned int height, const char *tex,
-                           unsigned int *fb);
+                           unsigned short *db, unsigned int *fb);
 
 const int WIDTH = 800, HEIGHT = 600; // SDL窗口的宽和高
 
@@ -34,6 +34,7 @@ int main() {
     SDL_Event windowEvent; // SDL窗口事件
 
     char *fb = static_cast<char *>(malloc((WIDTH + 10) * HEIGHT * 4));
+    char *db = static_cast<char *>(malloc((WIDTH + 10) * HEIGHT * 2));
 
     int _i = 0;
     while (true) {
@@ -44,11 +45,18 @@ int main() {
                 break;
             }
         }
-        Vertex in[3] = {{{149.f + i,     549.f - i / 4, 1.0f, 1.f}, {0.45f, 0.45f}},
-                        {{149.f + i / 2, 0.0f + i,      0.2f, 1.f}, {1.f,   0.f}},
-                        {{549.f - i,     549.f - i,     0.0f, 1.f}, {0.f,   1.f}}};
         memset(fb, 0x55, WIDTH * HEIGHT * 4);
-        half_space_rasterizer(in, WIDTH, HEIGHT, nullptr, reinterpret_cast<unsigned int *>(fb));
+        memset(db, 0x0, WIDTH * HEIGHT * 2);
+        Vertex in1[3] = {{{200.f, 100.f, 1.0f, 1.f}, {0.45f, 0.45f}},
+                         {{600.f, 100.f, 0.0f, 1.f}, {1.f,   0.f}},
+                         {{200.f, 500.f, 0.0f, 1.f}, {0.f,   1.f}}};
+        Vertex in2[3] = {{{400.f, 100.f, 0.0f, 1.f}, {0.99f, 0.99f}},
+                         {{400.f, 300.f, 1.0f, 1.f}, {0.99f, 0.99f}},
+                         {{200.f, 300.f, 0.0f, 1.f}, {0.99f, 0.99f}}};
+        half_space_rasterizer(in1, WIDTH, HEIGHT, nullptr, reinterpret_cast<unsigned short *>(db),
+                              reinterpret_cast<unsigned int *>(fb));
+        half_space_rasterizer(in2, WIDTH, HEIGHT, nullptr, reinterpret_cast<unsigned short *>(db),
+                              reinterpret_cast<unsigned int *>(fb));
         SDL_UpdateTexture(tex, nullptr, fb, WIDTH * 4);
         SDL_RenderCopy(render, tex, nullptr, nullptr);
         SDL_RenderPresent(render);
