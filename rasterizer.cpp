@@ -135,13 +135,14 @@ void half_space_rasterizer(const Vertex input[3], unsigned int width, unsigned i
     // convert parameters into fixed-points.
     // signed 12.0 -1024 - 1023.
     short max_x, max_y, min_x, min_y;
-    short x[3], y[3], d[3];
+    short x[3], y[3];
+    unsigned short d[3];
     // signed 12.0
     unsigned short u[3], v[3];
     for (int i = 0; i < 3; i++) {
         x[i] = (short) (lroundf(input[i].position[0]) & 0xfff);
         y[i] = (short) (lroundf(input[i].position[1]) & 0xfff);
-        d[i] = (short) (lroundf(input[i].position[2] * 4095.f) & 0xfff);
+        d[i] = (unsigned short) (lroundf(input[i].position[2] * 65535.f));
 
         u[i] = (unsigned short) (input[i].texcoord[0] * 4095.f);
         v[i] = (unsigned short) (input[i].texcoord[1] * 4095.f);
@@ -166,7 +167,7 @@ void half_space_rasterizer(const Vertex input[3], unsigned int width, unsigned i
     int delta = (F01_0 + F12_0 + F20_0) & 0xffffff;
     if (delta & 0x800000) return;
     int F01_y, F12_y, F20_y;
-    short Z_y, U_y, V_y;
+    unsigned short Z_y, U_y, V_y;
     short DZDX, DZDY, DUDX, DUDY, DVDX, DVDY;
 
     // 24b begin 24b * 3 = 72b
@@ -175,27 +176,27 @@ void half_space_rasterizer(const Vertex input[3], unsigned int width, unsigned i
     F20_y = (F20_0 + ((ext12b(DF20DX) * min_x)) + ((ext12b(DF20DY) * min_y))) & 0xffffff;
 
     // 12b begin 12b * 6 = 72b
-    DZDX = (short) (((ext12b(DF20DX) * (d[1] - d[0]) + ext12b(DF01DX) * (d[2] - d[0])) / delta) & 0xfff);
-    DZDY = (short) (((ext12b(DF20DY) * (d[1] - d[0]) + ext12b(DF01DY) * (d[2] - d[0])) / delta) & 0xfff);
+    DZDX = (short) ((ext12b(DF20DX) * (d[1] - d[0]) + ext12b(DF01DX) * (d[2] - d[0])) / delta);
+    DZDY = (short) ((ext12b(DF20DY) * (d[1] - d[0]) + ext12b(DF01DY) * (d[2] - d[0])) / delta);
     DUDX = (short) (((ext12b(DF20DX) * (u[1] - u[0]) + ext12b(DF01DX) * (u[2] - u[0])) / delta) & 0xfff);
     DUDY = (short) (((ext12b(DF20DY) * (u[1] - u[0]) + ext12b(DF01DY) * (u[2] - u[0])) / delta) & 0xfff);
     DVDX = (short) (((ext12b(DF20DX) * (v[1] - v[0]) + ext12b(DF01DX) * (v[2] - v[0])) / delta) & 0xfff);
     DVDY = (short) (((ext12b(DF20DY) * (v[1] - v[0]) + ext12b(DF01DY) * (v[2] - v[0])) / delta) & 0xfff);
-    Z_y = (short) ((d[0] + ext12b(DZDX) * (min_x - x[0]) + ext12b(DZDY) * (min_y - y[0])) & 0xfff);
-    U_y = (short) ((u[0] + ext12b(DUDX) * (min_x - x[0]) + ext12b(DUDY) * (min_y - y[0])) & 0xfff);
+    Z_y = (short) (d[0] + DZDX * (min_x - x[0]) + DZDY * (min_y - y[0]));
+    U_y = (short) ((u[0] + ext12b(DUDX) * (min_x - x[0]) + ext12b(DUDY) * (min_y - y[0])));
     V_y = (short) ((v[0] + ext12b(DVDX) * (min_x - x[0]) + ext12b(DVDY) * (min_y - y[0])) & 0xfff);
     for (signed short iy = min_y; iy < max_y; iy += (1)) {
         int F01_x = F01_y;
         int F12_x = F12_y;
         int F20_x = F20_y;
-        short Z_x = Z_y;
-        short U_x = U_y;
-        short V_x = V_y;
+        unsigned short Z_x = Z_y;
+        unsigned short U_x = U_y;
+        unsigned short V_x = V_y;
         for (signed short ix = min_x; ix < max_x; ix += (1)) {
             unsigned int addr = (iy) * width + (ix);
             if (((F01_x | F12_x | F20_x) & 0x800000) == 0) {
                 if (Z_x >= db[addr]) {
-                    db[addr] = Z_x & 0xfff;
+                    db[addr] = Z_x;
                     fb[addr] = 0xff000000 | (((U_x >> 4) & 0xff) << 8) | (((V_x >> 4) & 0xff) << 0);
                 }
             }
@@ -205,14 +206,14 @@ void half_space_rasterizer(const Vertex input[3], unsigned int width, unsigned i
             F01_x = (F01_x + ext12b(DF01DX)) & 0xffffff;
             F12_x = (F12_x + ext12b(DF12DX)) & 0xffffff;
             F20_x = (F20_x + ext12b(DF20DX)) & 0xffffff;
-            Z_x = (short) ((Z_x + ext12b(DZDX)) & 0xfff);
+            Z_x = (unsigned short) (Z_x + DZDX);
             U_x = (short) ((U_x + ext12b(DUDX)) & 0xfff);
             V_x = (short) ((V_x + ext12b(DVDX)) & 0xfff);
         }
         F01_y = (F01_y + ext12b(DF01DY)) & 0xffffff;
         F12_y = (F12_y + ext12b(DF12DY)) & 0xffffff;
         F20_y = (F20_y + ext12b(DF20DY)) & 0xffffff;
-        Z_y = (short) ((Z_y + ext12b(DZDY)) & 0xfff);
+        Z_y = (unsigned short) (Z_y + DZDY);
         U_y = (short) ((U_y + ext12b(DUDY)) & 0xfff);
         V_y = (short) ((V_y + ext12b(DVDY)) & 0xfff);
     }

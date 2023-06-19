@@ -48,11 +48,11 @@ int main() {
         memset(fb, 0x55, WIDTH * HEIGHT * 4);
         memset(db, 0x0, WIDTH * HEIGHT * 2);
         Vertex in1[3] = {{{200.f, 100.f, 1.0f, 1.f}, {0.45f, 0.45f}},
-                         {{600.f, 100.f, 0.0f,                     1.f}, {1.f,   0.f}},
-                         {{200.f, 500.f, 0.0f,                     1.f}, {0.f,   1.f}}};
-        Vertex in2[3] = {{{400.f, 100.f, 0.0f, 1.f}, {0.99f, 0.99f}},
-                         {{400.f, 300.f, 1.0f- ((float) i / 500), 1.f}, {0.99f, 0.99f}},
-                         {{200.f, 300.f, 0.0f, 1.f}, {0.99f, 0.99f}}};
+                         {{600.f, 100.f, 0.8f, 1.f}, {1.f,   0.f}},
+                         {{200.f, 500.f, 0.8f, 1.f}, {0.f,   1.f}}};
+        Vertex in2[3] = {{{400.f, 100.f, 0.8f,                     1.f}, {0.99f, 0.99f}},
+                         {{400.f, 300.f, 1.0f - ((float) i / 2500), 1.f}, {0.99f, 0.99f}},
+                         {{200.f, 300.f, 0.8f,                     1.f}, {0.99f, 0.99f}}};
         half_space_rasterizer(in1, WIDTH, HEIGHT, nullptr, reinterpret_cast<unsigned short *>(db),
                               reinterpret_cast<unsigned int *>(fb));
         half_space_rasterizer(in2, WIDTH, HEIGHT, nullptr, reinterpret_cast<unsigned short *>(db),
